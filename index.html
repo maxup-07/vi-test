@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Max - Better than other</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+body{margin:0;font-family:Poppins;background:#f9fafb;}
+header{background:#22c55e;color:#fff;padding:15px;text-align:left;}
+header h2{margin:0;font-size:20px;}
+.tag{font-size:12px;color:#dcfce7;}
+
+.topbar{display:flex;gap:8px;padding:10px;}
+.search{flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;}
+
+.filters{display:flex;gap:8px;padding:10px;overflow:auto;}
+.filters button{border:none;padding:8px 12px;border-radius:20px;background:#e5e7eb;font-size:12px;}
+.filters button.active{background:#22c55e;color:white;}
+
+.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;padding:10px;}
+.card{background:white;border-radius:12px;padding:8px;box-shadow:0 2px 6px rgba(0,0,0,0.08);}
+.card img{width:100%;height:120px;object-fit:cover;border-radius:10px;}
+.card h4{font-size:13px;margin:5px 0;}
+.card p{margin:0;font-weight:600;}
+.add{margin-top:5px;background:#22c55e;color:white;border:none;width:100%;padding:6px;border-radius:6px;font-size:12px;}
+
+.cart-btn{position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:15px;border-radius:50%;font-size:18px;box-shadow:0 4px 10px rgba(0,0,0,0.2);}
+.whatsapp{position:fixed;bottom:80px;right:20px;background:#25D366;color:white;padding:12px;border-radius:50%;}
+
+.cart-modal{position:fixed;bottom:0;width:100%;background:white;max-height:85%;overflow:auto;display:none;padding:15px;border-top-left-radius:15px;border-top-right-radius:15px;}
+.cart-item{display:flex;justify-content:space-between;margin:10px 0;border-bottom:1px solid #eee;padding-bottom:5px;font-size:13px;}
+.qty button{padding:4px;}
+.remove{color:red;font-size:11px;cursor:pointer;}
+.total{font-weight:600;margin-top:10px;}
+
+input,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc;}
+button.submit{background:#22c55e;color:white;border:none;padding:12px;margin-top:10px;border-radius:8px;width:100%;}
+.success{text-align:center;color:green;font-weight:600;margin-top:10px;}
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>Max 🛒</h2>
+<div class="tag">Fast delivery | Gurugram</div>
+</header>
+
+<div class="topbar">
+<input class="search" placeholder="Search groceries..." oninput="search(this.value)">
+</div>
+
+<div class="filters">
+<button class="active" onclick="filter('All')">All</button>
+<button onclick="filter('Groceries')">Groceries</button>
+<button onclick="filter('Dairy')">Dairy</button>
+<button onclick="filter('Snacks')">Snacks</button>
+<button onclick="filter('Beverages')">Beverages</button>
+</div>
+
+<div class="products" id="products"></div>
+
+<div class="cart-btn" onclick="toggleCart()">🛒 <span id="count">0</span></div>
+<a class="whatsapp" id="waLink" target="_blank">💬</a>
+
+<div class="cart-modal" id="cartModal">
+<h3>Your Cart</h3>
+<div id="cartItems"></div>
+<div class="total">Total: ₹<span id="total">0</span></div>
+
+<form action="https://formspree.io/f/mnjovvnl" method="POST" onsubmit="prepareOrder()">
+<input type="hidden" name="order" id="orderData">
+
+<input name="name" required placeholder="Your Name">
+<input name="phone" required placeholder="Phone Number">
+<textarea name="address" required placeholder="Delivery Address"></textarea>
+<textarea name="notes" placeholder="Instructions"></textarea>
+
+<button class="submit" type="submit">Place Order</button>
+</form>
+
+<div class="success" id="msg"></div>
+</div>
+
+<script>
+const data=[
+{name:"Aashirvaad Atta",price:280,cat:"Groceries",img:"https://i.ibb.co/nsJWHwb8/download.webp"},
+{name:"Basmati Rice",price:450,cat:"Groceries",img:"https://i.ibb.co/ZpJ5mtrG/th.webp"},
+{name:"Amul Butter",price:280,cat:"Dairy",img:"https://i.ibb.co/wrRFvQyR/amul.jpg"},
+{name:"Milk",price:60,cat:"Dairy",img:"https://i.ibb.co/GfY9ntwy/OIP-4.webp"},
+{name:"Lays",price:20,cat:"Snacks",img:"https://i.ibb.co/bRXFqtH9/lays.webp"},
+{name:"Biscuits",price:30,cat:"Snacks",img:"https://i.ibb.co/ymDMWHwp/bisc.webp"},
+{name:"Coca Cola",price:60,cat:"Beverages",img:"https://i.ibb.co/cc7DQRbC/coca.webp"},
+{name:"Real Juice",price:120,cat:"Beverages",img:"https://i.ibb.co/n8PzP1Nc/real.webp"}
+];
+
+let filtered=[...data];
+let cart=JSON.parse(localStorage.getItem("cart"))||[];
+
+function show(list){
+document.getElementById("products").innerHTML=list.map((p,i)=>`
+<div class="card">
+<img src="${p.img}" loading="lazy">
+<h4>${p.name}</h4>
+<p>₹${p.price}</p>
+<button class="add" onclick="add(${i})">Add</button>
+</div>`).join("");
+}
+
+function filter(cat){
+document.querySelectorAll(".filters button").forEach(b=>b.classList.remove("active"));
+event.target.classList.add("active");
+filtered=cat==="All"?[...data]:data.filter(p=>p.cat===cat);
+show(filtered);
+}
+
+function search(q){
+q=q.toLowerCase();
+show(filtered.filter(p=>p.name.toLowerCase().includes(q)));
+}
+
+function add(i){
+let item=filtered[i];
+let f=cart.find(x=>x.name===item.name);
+if(f)f.qty++; else cart.push({...item,qty:1});
+save();
+}
+
+function save(){
+localStorage.setItem("cart",JSON.stringify(cart));
+update();
+}
+
+function update(){
+document.getElementById("count").innerText=cart.reduce((a,b)=>a+b.qty,0);
+
+let html="",total=0;
+cart.forEach((c,i)=>{
+total+=c.price*c.qty;
+html+=`<div class="cart-item">
+<div>${c.name}<br>₹${c.price*c.qty}<br><span class="remove" onclick="removeItem(${i})">Remove</span></div>
+<div class="qty">
+<button onclick="chg(${i},-1)">-</button>
+${c.qty}
+<button onclick="chg(${i},1)">+</button>
+</div>
+</div>`;
+});
+
+document.getElementById("cartItems").innerHTML=html;
+document.getElementById("total").innerText=total;
+updateWA();
+}
+
+function chg(i,v){
+cart[i].qty+=v;
+if(cart[i].qty<=0)cart.splice(i,1);
+save();
+}
+
+function removeItem(i){cart.splice(i,1);save();}
+
+function toggleCart(){
+let m=document.getElementById("cartModal");
+m.style.display=m.style.display==="block"?"none":"block";
+}
+
+function updateWA(){
+let msg="Order:%0A";
+cart.forEach(i=>msg+=`${i.name} x${i.qty} = ₹${i.qty*i.price}%0A`);
+msg+="Total ₹"+document.getElementById("total").innerText;
+document.getElementById("waLink").href=`https://wa.me/918929943187?text=${msg}`;
+}
+
+function prepareOrder(){
+let txt="Order Details:\n";
+cart.forEach(i=>txt+=`${i.name} x${i.qty} = ₹${i.qty*i.price}\n`);
+txt+="Total ₹"+document.getElementById("total").innerText;
+
+document.getElementById("orderData").value=txt;
+
+cart=[];
+localStorage.removeItem("cart");
+
+setTimeout(()=>document.getElementById("msg").innerText="Order placed! Max will contact you.",500);
+}
+
+show(data);
+update();
+</script>
+
+</body>
+</html>
